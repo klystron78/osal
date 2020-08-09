@@ -188,7 +188,7 @@ int32 OS_GenericRead_Impl(uint32 local_id, void *buffer, uint32 nbytes, int32 ti
             }
             else
             {
-                return_code = os_result;
+                return_code = (int32)os_result;
             }
         }
     }
@@ -241,7 +241,7 @@ int32 OS_GenericWrite_Impl(uint32 local_id, const void *buffer, uint32 nbytes, i
             }
             else
             {
-                return_code = os_result;
+                return_code = (int32)os_result;
             }
         }
     }

@@ -223,7 +223,7 @@ int32 OS_QueueGet_Impl(uint32 queue_id, void *data, uint32 size, uint32 *size_co
         }
         else
         {
-            OS_Posix_CompAbsDelayTime(timeout, &ts);
+            OS_Posix_CompAbsDelayTime((uint32)timeout, &ts);
         }
 
         /*
@@ -266,7 +266,7 @@ int32 OS_QueueGet_Impl(uint32 queue_id, void *data, uint32 size, uint32 *size_co
     }
     else
     {
-        *size_copied = sizeCopied;
+        *size_copied = (uint32)sizeCopied;
         return_code  = OS_SUCCESS;
     }
 

@@ -556,7 +556,7 @@ int32 OS_unmount(const char *mountpoint)
         {
             /* mark as mounted in the local table.
              * For now this does both sides (system and virtual) */
-            local->flags &= ~(OS_FILESYS_FLAG_IS_MOUNTED_SYSTEM | OS_FILESYS_FLAG_IS_MOUNTED_VIRTUAL);
+            local->flags &= (uint8)~(OS_FILESYS_FLAG_IS_MOUNTED_SYSTEM | OS_FILESYS_FLAG_IS_MOUNTED_VIRTUAL);
         }
 
         OS_Unlock_Global(LOCAL_OBJID_TYPE);
@@ -608,7 +608,7 @@ int32 OS_fsBlocksFree(const char *name)
 
         if (return_code == OS_SUCCESS)
         {
-            return_code = statfs.blocks_free;
+            return_code = (int32)statfs.blocks_free; /* SDS: this should be 64-bit return */
         }
     }
     else

@@ -146,7 +146,7 @@ int32 OS_TimeBaseCreate(osal_id_t *timer_id, const char *timebase_name, OS_Timer
         OS_timebase_table[local_id].external_sync = external_sync;
         if (external_sync == NULL)
         {
-            OS_timebase_table[local_id].accuracy_usec = OS_SharedGlobalVars.MicroSecPerTick;
+            OS_timebase_table[local_id].accuracy_usec = (uint32)OS_SharedGlobalVars.MicroSecPerTick;
         }
         else
         {
@@ -206,7 +206,7 @@ int32 OS_TimeBaseSet(osal_id_t timer_id, uint32 start_time, uint32 interval_time
         /* Need to take the time base lock to ensure that no ticks are currently being processed */
         OS_TimeBaseLock_Impl(local_id);
 
-        return_code = OS_TimeBaseSet_Impl(local_id, start_time, interval_time);
+        return_code = OS_TimeBaseSet_Impl(local_id, (int32)start_time, (int32)interval_time);
 
         if (return_code == OS_SUCCESS)
         {
@@ -488,7 +488,7 @@ void OS_TimeBase_CallbackThread(osal_id_t timebase_id)
                 curr_cb_public_id = OS_global_timecb_table[curr_cb_local_id].active_id;
                 timecb            = &OS_timecb_table[curr_cb_local_id];
                 saved_wait_time   = timecb->wait_time;
-                timecb->wait_time -= tick_time;
+                timecb->wait_time -= (int32)tick_time;
                 while (timecb->wait_time <= 0)
                 {
                     timecb->wait_time += timecb->interval_time;

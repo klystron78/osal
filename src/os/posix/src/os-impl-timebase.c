@@ -412,7 +412,7 @@ int32 OS_TimeBaseCreate_Impl(uint32 timer_id)
              * The output is irrelevant here; the objective is to just ensure
              * that the signal is not already pending.
              */
-            i = sysconf(_SC_SIGQUEUE_MAX);
+            i = (int)sysconf(_SC_SIGQUEUE_MAX);
             do
             {
                 ts.tv_sec  = 0;
@@ -496,8 +496,8 @@ int32 OS_TimeBaseSet_Impl(uint32 timer_id, int32 start_time, int32 interval_time
         ** Convert from Microseconds to timespec structures
         */
         memset(&timeout, 0, sizeof(timeout));
-        OS_UsecToTimespec(start_time, &timeout.it_value);
-        OS_UsecToTimespec(interval_time, &timeout.it_interval);
+        OS_UsecToTimespec((uint32)start_time, &timeout.it_value);
+        OS_UsecToTimespec((uint32)interval_time, &timeout.it_interval);
 
         /*
         ** Program the real timer
