@@ -40,6 +40,7 @@ typedef struct
    osal_task_entry delete_hook_pointer;
    void      *entry_arg;
    uint32    *stack_pointer;
+   uint32    affinity;
 }OS_task_internal_record_t;
 
 /*

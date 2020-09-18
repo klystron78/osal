@@ -122,7 +122,7 @@ int32 OS_VxWorks_TaskAPI_Impl_Init(void)
  *-----------------------------------------------------------------*/
 int32 OS_TaskCreate_Impl (uint32 task_id, uint32 flags)
 {
-    STATUS status;
+    int status;
     int vxflags;
     int vxpri;
     long actualsz;
@@ -130,6 +130,8 @@ int32 OS_TaskCreate_Impl (uint32 task_id, uint32 flags)
     long actualstackbase;
     OS_impl_task_internal_record_t *lrec;
     VxWorks_ID_Buffer_t id;
+    cpuset_t affinity;
+    int i;
 
     lrec = &OS_impl_task_table[task_id];
 
@@ -261,6 +263,19 @@ int32 OS_TaskCreate_Impl (uint32 task_id, uint32 flags)
 
     lrec->vxid = (TASK_ID)&lrec->tcb;
 
+    CPUSET_ZERO(affinity);
+    if(OS_task_table[task_id].affinity!=0) {
+        for(i=0;i<32 /* number of bits */;++i) {
+            if(OS_task_table[task_id].affinity&(1<<i)) CPUSET_SET(affinity, i);
+        }
+
+        if(taskCpuAffinitySet(lrec->vxid, affinity)==ERROR) {
+            /* should we write something to syslog? */
+            taskDelete(lrec->vxid);
+            return OS_ERROR;
+        }
+    }
+    
     taskActivate(lrec->vxid);
 
     return OS_SUCCESS;

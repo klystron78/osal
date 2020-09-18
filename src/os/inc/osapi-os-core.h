@@ -542,6 +542,13 @@ int32 OS_TaskCreate            (osal_id_t *task_id, const char *task_name,
                                 uint32 stack_size,
                                 uint32 priority, uint32 flags);
 
+int32 OS_TaskCreate_Ex         (osal_id_t *task_id, const char *task_name,
+                                osal_task_entry function_pointer,
+                                uint32 *stack_pointer,
+                                uint32 stack_size,
+                                uint32 priority, uint32 flags,
+                                uint32 affinity);
+                                
 /*-------------------------------------------------------------------------------------*/
 /**
  * @brief Deletes the specified Task

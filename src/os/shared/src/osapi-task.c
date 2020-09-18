@@ -186,8 +186,8 @@ int32 OS_TaskAPI_Init(void)
  *           See description in API and header file for detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_TaskCreate (osal_id_t *task_id, const char *task_name, osal_task_entry function_pointer,
-                      uint32 *stack_pointer, uint32 stack_size, uint32 priority, uint32 flags)
+int32 OS_TaskCreate_Ex (osal_id_t *task_id, const char *task_name, osal_task_entry function_pointer,
+                      uint32 *stack_pointer, uint32 stack_size, uint32 priority, uint32 flags, uint32 affinity)
 {
    OS_common_record_t *record;
    int32             return_code;
@@ -232,6 +232,7 @@ int32 OS_TaskCreate (osal_id_t *task_id, const char *task_name, osal_task_entry 
       OS_task_table[local_id].priority = priority;
       OS_task_table[local_id].entry_function_pointer = function_pointer;
       OS_task_table[local_id].stack_pointer = stack_pointer;
+      OS_task_table[local_id].affinity = affinity;
 
       /* Now call the OS-specific implementation.  This reads info from the task table. */
       return_code = OS_TaskCreate_Impl(local_id, flags);
@@ -245,7 +246,11 @@ int32 OS_TaskCreate (osal_id_t *task_id, const char *task_name, osal_task_entry 
    return return_code;
 } /* end OS_TaskCreate */
 
-
+int32 OS_TaskCreate (osal_id_t *task_id, const char *task_name, osal_task_entry function_pointer,
+                      uint32 *stack_pointer, uint32 stack_size, uint32 priority, uint32 flags)
+{
+    return OS_TaskCreate_Ex(task_id, task_name, function_pointer, stack_pointer, stack_size, priority, flags, 0);
+}
 
 /*----------------------------------------------------------------
  *
