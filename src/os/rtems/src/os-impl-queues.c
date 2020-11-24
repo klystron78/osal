@@ -40,24 +40,22 @@
 
 #include "os-shared-queue.h"
 #include "os-shared-idmap.h"
+#include "os-shared-timebase.h"
 
 /****************************************************************************************
                                      DEFINES
  ***************************************************************************************/
-
 
 /****************************************************************************************
                                    GLOBAL DATA
  ***************************************************************************************/
 
 /* Tables where the OS object information is stored */
-OS_impl_queue_internal_record_t    OS_impl_queue_table         [OS_MAX_QUEUES];
-
+OS_impl_queue_internal_record_t OS_impl_queue_table[OS_MAX_QUEUES];
 
 /****************************************************************************************
                                 MESSAGE QUEUE API
  ***************************************************************************************/
-
 
 /*----------------------------------------------------------------
  *
@@ -72,7 +70,6 @@ int32 OS_Rtems_QueueAPI_Impl_Init(void)
     return (OS_SUCCESS);
 } /* end OS_Rtems_QueueAPI_Impl_Init */
 
-
 /*----------------------------------------------------------------
  *
  * Function: OS_QueueCreate_Impl
@@ -81,18 +78,17 @@ int32 OS_Rtems_QueueAPI_Impl_Init(void)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_QueueCreate_Impl (uint32 queue_id, uint32 flags)
+int32 OS_QueueCreate_Impl(uint32 queue_id, uint32 flags)
 {
-    rtems_status_code  status;
-    rtems_name         r_name;
-
+    rtems_status_code status;
+    rtems_name        r_name;
 
     /*
     ** RTEMS task names are 4 byte integers.
     ** It is convenient to use the OSAL queue ID in here, as we know it is already unique
     ** and trying to use the real queue name would be less than useful (only 4 chars)
     */
-    r_name = OS_global_queue_table[queue_id].active_id;
+    r_name = OS_ObjectIdToInteger(OS_global_queue_table[queue_id].active_id);
 
     /*
     ** Create the message queue.
@@ -101,11 +97,11 @@ int32 OS_QueueCreate_Impl (uint32 queue_id, uint32 flags)
     ** on each queue.
     */
     status = rtems_message_queue_create(
-            r_name,                        /* 32-bit RTEMS object name; not used */
-            OS_queue_table[queue_id].max_depth,                   /* maximum number of messages in queue (queue depth) */
-            OS_queue_table[queue_id].max_size,                    /* maximum size in bytes of a message */
-            RTEMS_FIFO|RTEMS_LOCAL,        /* attributes (default) */
-            &(OS_impl_queue_table[queue_id].id)  /* object ID returned for queue */
+        r_name,                             /* 32-bit RTEMS object name; not used */
+        OS_queue_table[queue_id].max_depth, /* maximum number of messages in queue (queue depth) */
+        OS_queue_table[queue_id].max_size,  /* maximum size in bytes of a message */
+        RTEMS_FIFO | RTEMS_LOCAL,           /* attributes (default) */
+        &(OS_impl_queue_table[queue_id].id) /* object ID returned for queue */
     );
 
     /*
@@ -113,14 +109,13 @@ int32 OS_QueueCreate_Impl (uint32 queue_id, uint32 flags)
     */
     if (status != RTEMS_SUCCESSFUL)
     {
-        OS_DEBUG("Unhandled queue_create error: %s\n",rtems_status_text(status));
-       return OS_ERROR;
+        OS_DEBUG("Unhandled queue_create error: %s\n", rtems_status_text(status));
+        return OS_ERROR;
     }
 
     return OS_SUCCESS;
 
 } /* end OS_QueueCreate_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -130,23 +125,21 @@ int32 OS_QueueCreate_Impl (uint32 queue_id, uint32 flags)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_QueueDelete_Impl (uint32 queue_id)
+int32 OS_QueueDelete_Impl(uint32 queue_id)
 {
     rtems_status_code status;
 
     /* Try to delete the queue */
     status = rtems_message_queue_delete(OS_impl_queue_table[queue_id].id);
-    if(status != RTEMS_SUCCESSFUL)
+    if (status != RTEMS_SUCCESSFUL)
     {
-        OS_DEBUG("Unhandled queue_delete error: %s\n",rtems_status_text(status));
+        OS_DEBUG("Unhandled queue_delete error: %s\n", rtems_status_text(status));
         return OS_ERROR;
     }
 
     return OS_SUCCESS;
 
 } /* end OS_QueueDelete_Impl */
-
-
 
 /*----------------------------------------------------------------
  *
@@ -156,15 +149,15 @@ int32 OS_QueueDelete_Impl (uint32 queue_id)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_QueueGet_Impl (uint32 queue_id, void *data, uint32 size, uint32 *size_copied,
-                    int32 timeout)
+int32 OS_QueueGet_Impl(uint32 queue_id, void *data, uint32 size, uint32 *size_copied, int32 timeout)
 {
-    int32              return_code;
-    rtems_status_code  status;
-    rtems_interval     ticks;
-    rtems_option       option_set;
-    size_t             rtems_size;
-    rtems_id           rtems_queue_id;
+    int32             return_code;
+    rtems_status_code status;
+    rtems_interval    ticks;
+    int               tick_count;
+    rtems_option      option_set;
+    size_t            rtems_size;
+    rtems_id          rtems_queue_id;
 
     rtems_queue_id = OS_impl_queue_table[queue_id].id;
 
@@ -172,29 +165,34 @@ int32 OS_QueueGet_Impl (uint32 queue_id, void *data, uint32 size, uint32 *size_c
     if (timeout == OS_PEND)
     {
         option_set = RTEMS_WAIT;
-        ticks = RTEMS_NO_TIMEOUT;
+        ticks      = RTEMS_NO_TIMEOUT;
     }
     else if (timeout == OS_CHECK)
     {
         option_set = RTEMS_NO_WAIT;
-        ticks = RTEMS_NO_TIMEOUT;
+        ticks      = RTEMS_NO_TIMEOUT;
     }
     else
     {
         option_set = RTEMS_WAIT;
+
         /* msecs rounded to the closest system tick count */
-        ticks = OS_Milli2Ticks(timeout);
+        if (OS_Milli2Ticks(timeout, &tick_count) != OS_SUCCESS)
+        {
+            return OS_ERROR;
+        }
+
+        ticks = (rtems_interval)tick_count;
     }
 
     /*
      ** Pend until a message arrives.
      */
-    status = rtems_message_queue_receive(
-            rtems_queue_id,            /* message queue descriptor */
-            data,                      /* pointer to message buffer */
-            &rtems_size,               /* returned size of message */
-            option_set,                /* wait option */
-            ticks                      /* timeout */
+    status = rtems_message_queue_receive(rtems_queue_id, /* message queue descriptor */
+                                         data,           /* pointer to message buffer */
+                                         &rtems_size,    /* returned size of message */
+                                         option_set,     /* wait option */
+                                         ticks           /* timeout */
     );
 
     if (status == RTEMS_SUCCESSFUL)
@@ -210,10 +208,10 @@ int32 OS_QueueGet_Impl (uint32 queue_id, void *data, uint32 size, uint32 *size_c
         return_code = OS_QUEUE_EMPTY;
     }
     else
-	{
-	    /* Something else went wrong */
-	    return_code = OS_ERROR;
-        OS_DEBUG("Unhandled queue_receive error: %s\n",rtems_status_text(status));
+    {
+        /* Something else went wrong */
+        return_code = OS_ERROR;
+        OS_DEBUG("Unhandled queue_receive error: %s\n", rtems_status_text(status));
     }
 
     /*
@@ -237,7 +235,6 @@ int32 OS_QueueGet_Impl (uint32 queue_id, void *data, uint32 size, uint32 *size_c
     return return_code;
 } /* end OS_QueueGet_Impl */
 
-
 /*----------------------------------------------------------------
  *
  * Function: OS_QueuePut_Impl
@@ -246,20 +243,19 @@ int32 OS_QueueGet_Impl (uint32 queue_id, void *data, uint32 size, uint32 *size_c
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_QueuePut_Impl (uint32 queue_id, const void *data, uint32 size, uint32 flags)
+int32 OS_QueuePut_Impl(uint32 queue_id, const void *data, uint32 size, uint32 flags)
 {
-    rtems_status_code  status;
-    rtems_id           rtems_queue_id;
+    rtems_status_code status;
+    rtems_id          rtems_queue_id;
 
     rtems_queue_id = OS_impl_queue_table[queue_id].id;
 
     /* Write the buffer pointer to the queue.  If an error occurred, report it
     ** with the corresponding SB status code.
     */
-    status = rtems_message_queue_send(
-            rtems_queue_id,                   /* message queue descriptor */
-            data,                             /* pointer to message */
-            size                              /* length of message */
+    status = rtems_message_queue_send(rtems_queue_id, /* message queue descriptor */
+                                      data,           /* pointer to message */
+                                      size            /* length of message */
     );
 
     if (status == RTEMS_TOO_MANY)
@@ -275,14 +271,13 @@ int32 OS_QueuePut_Impl (uint32 queue_id, const void *data, uint32 size, uint32 f
         /*
         ** Unexpected error while writing to queue.
         */
-        OS_DEBUG("Unhandled queue_send error: %s\n",rtems_status_text(status));
+        OS_DEBUG("Unhandled queue_send error: %s\n", rtems_status_text(status));
         return OS_ERROR;
     }
 
     return OS_SUCCESS;
 
 } /* end OS_QueuePut_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -292,10 +287,9 @@ int32 OS_QueuePut_Impl (uint32 queue_id, const void *data, uint32 size, uint32 f
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_QueueGetInfo_Impl (uint32 queue_id, OS_queue_prop_t *queue_prop)
+int32 OS_QueueGetInfo_Impl(uint32 queue_id, OS_queue_prop_t *queue_prop)
 {
     /* No extra info for queues in the OS implementation */
     return OS_SUCCESS;
 
 } /* end OS_QueueGetInfo_Impl */
-

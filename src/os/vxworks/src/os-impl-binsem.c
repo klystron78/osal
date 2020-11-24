@@ -32,19 +32,18 @@
 
 #include "os-impl-binsem.h"
 #include "os-shared-binsem.h"
+#include "os-shared-timebase.h"
 
 /****************************************************************************************
                                      DEFINES
 ****************************************************************************************/
-
 
 /****************************************************************************************
                                    GLOBAL DATA
 ****************************************************************************************/
 
 /* Tables where the OS object information is stored */
-OS_impl_binsem_internal_record_t   OS_impl_bin_sem_table   [OS_MAX_BIN_SEMAPHORES];
-
+OS_impl_binsem_internal_record_t OS_impl_bin_sem_table[OS_MAX_BIN_SEMAPHORES];
 
 /****************************************************************************************
                              BINARY SEMAPHORE API
@@ -63,7 +62,6 @@ int32 OS_VxWorks_BinSemAPI_Impl_Init(void)
     return (OS_SUCCESS);
 } /* end OS_VxWorks_BinSemAPI_Impl_Init */
 
-
 /*----------------------------------------------------------------
  *
  * Function: OS_BinSemCreate_Impl
@@ -72,7 +70,7 @@ int32 OS_VxWorks_BinSemAPI_Impl_Init(void)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemCreate_Impl (uint32 sem_id, uint32 sem_initial_value, uint32 options)
+int32 OS_BinSemCreate_Impl(uint32 sem_id, uint32 sem_initial_value, uint32 options)
 {
     SEM_ID tmp_sem_id;
 
@@ -81,9 +79,9 @@ int32 OS_BinSemCreate_Impl (uint32 sem_id, uint32 sem_initial_value, uint32 opti
     tmp_sem_id = semBInitialize(OS_impl_bin_sem_table[sem_id].bmem, SEM_Q_PRIORITY, sem_initial_value);
 
     /* check if semBInitialize failed */
-    if(tmp_sem_id == (SEM_ID)0)
+    if (tmp_sem_id == (SEM_ID)0)
     {
-        OS_DEBUG("semBInitialize() - vxWorks errno %d\n",errno);
+        OS_DEBUG("semBInitialize() - vxWorks errno %d\n", errno);
         return OS_SEM_FAILURE;
     }
 
@@ -91,8 +89,6 @@ int32 OS_BinSemCreate_Impl (uint32 sem_id, uint32 sem_initial_value, uint32 opti
     return OS_SUCCESS;
 
 } /* end OS_BinSemCreate_Impl */
-
-
 
 /*----------------------------------------------------------------
  *
@@ -102,7 +98,7 @@ int32 OS_BinSemCreate_Impl (uint32 sem_id, uint32 sem_initial_value, uint32 opti
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemDelete_Impl (uint32 sem_id)
+int32 OS_BinSemDelete_Impl(uint32 sem_id)
 {
     /*
      * As the memory for the sem is statically allocated, delete is a no-op.
@@ -112,7 +108,6 @@ int32 OS_BinSemDelete_Impl (uint32 sem_id)
 
 } /* end OS_BinSemDelete_Impl */
 
-
 /*----------------------------------------------------------------
  *
  * Function: OS_BinSemGive_Impl
@@ -121,12 +116,11 @@ int32 OS_BinSemDelete_Impl (uint32 sem_id)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemGive_Impl (uint32 sem_id)
+int32 OS_BinSemGive_Impl(uint32 sem_id)
 {
     /* Use common routine */
     return OS_VxWorks_GenericSemGive(OS_impl_bin_sem_table[sem_id].vxid);
 } /* end OS_BinSemGive_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -136,18 +130,17 @@ int32 OS_BinSemGive_Impl (uint32 sem_id)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemFlush_Impl (uint32 sem_id)
+int32 OS_BinSemFlush_Impl(uint32 sem_id)
 {
     /* Flush VxWorks Semaphore */
-    if(semFlush(OS_impl_bin_sem_table[sem_id].vxid) != OK)
+    if (semFlush(OS_impl_bin_sem_table[sem_id].vxid) != OK)
     {
-        OS_DEBUG("semFlush() - vxWorks errno %d\n",errno);
+        OS_DEBUG("semFlush() - vxWorks errno %d\n", errno);
         return OS_SEM_FAILURE;
     }
 
     return OS_SUCCESS;
 } /* end OS_BinSemFlush_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -157,13 +150,12 @@ int32 OS_BinSemFlush_Impl (uint32 sem_id)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemTake_Impl (uint32 sem_id)
+int32 OS_BinSemTake_Impl(uint32 sem_id)
 {
     /* Use common routine */
     return OS_VxWorks_GenericSemTake(OS_impl_bin_sem_table[sem_id].vxid, WAIT_FOREVER);
 
 } /* end OS_BinSemTake_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -173,11 +165,20 @@ int32 OS_BinSemTake_Impl (uint32 sem_id)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemTimedWait_Impl (uint32 sem_id, uint32 msecs)
+int32 OS_BinSemTimedWait_Impl(uint32 sem_id, uint32 msecs)
 {
-    return OS_VxWorks_GenericSemTake(OS_impl_bin_sem_table[sem_id].vxid, OS_Milli2Ticks(msecs));
-} /* end OS_BinSemTimedWait_Impl */
+    int   ticks;
+    int32 status;
 
+    status = OS_Milli2Ticks(msecs, &ticks);
+
+    if (status == OS_SUCCESS)
+    {
+        status = OS_VxWorks_GenericSemTake(OS_impl_bin_sem_table[sem_id].vxid, ticks);
+    }
+
+    return status;
+} /* end OS_BinSemTimedWait_Impl */
 
 /*----------------------------------------------------------------
  *
@@ -187,10 +188,8 @@ int32 OS_BinSemTimedWait_Impl (uint32 sem_id, uint32 msecs)
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_BinSemGetInfo_Impl (uint32 sem_id, OS_bin_sem_prop_t *bin_prop)
+int32 OS_BinSemGetInfo_Impl(uint32 sem_id, OS_bin_sem_prop_t *bin_prop)
 {
     /* VxWorks has no API for obtaining the current value of a semaphore */
     return OS_SUCCESS;
 } /* end OS_BinSemGetInfo_Impl */
-
-

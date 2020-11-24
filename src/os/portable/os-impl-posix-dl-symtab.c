@@ -66,13 +66,11 @@
  */
 #ifndef OSAL_DLSYM_DEFAULT_HANDLE
 #ifdef RTLD_DEFAULT
-#define OSAL_DLSYM_DEFAULT_HANDLE   RTLD_DEFAULT
+#define OSAL_DLSYM_DEFAULT_HANDLE RTLD_DEFAULT
 #else
-#define OSAL_DLSYM_DEFAULT_HANDLE   NULL
+#define OSAL_DLSYM_DEFAULT_HANDLE NULL
 #endif
 #endif
-
-
 
 /****************************************************************************************
                                     Symbol table API
@@ -80,24 +78,26 @@
 
 /*----------------------------------------------------------------
  *
- * Function: OS_SymbolLookup_Impl
+ * Function: OS_GenericSymbolLookup_Impl
  *
  *  Purpose: Implemented per internal OSAL API
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_SymbolLookup_Impl( cpuaddr *SymbolAddress, const char *SymbolName )
+int32 OS_GenericSymbolLookup_Impl(void *dl_handle, cpuaddr *SymbolAddress, const char *SymbolName)
 {
-    int32        status = OS_ERROR;
-    const char   *dlError;           /*  Pointer to error string   */
-    void         *Function;
+    const char *dlError; /*  Pointer to error string   */
+    void       *Function;
+    int32       status;
+
+    status = OS_ERROR;
 
     /*
      * call dlerror() to clear any prior error that might have occurred.
      */
     dlerror();
-    Function = dlsym(OSAL_DLSYM_DEFAULT_HANDLE, SymbolName);
-    dlError = dlerror();
+    Function = dlsym(dl_handle, SymbolName);
+    dlError  = dlerror();
 
     /*
      * For the POSIX DL implementation, if the symbol does not exist
@@ -112,15 +112,60 @@ int32 OS_SymbolLookup_Impl( cpuaddr *SymbolAddress, const char *SymbolName )
      * and as such all valid symbols should be non-NULL, so NULL is considered
      * an error even if the C library doesn't consider this an error.
      */
-    if( dlError == NULL && Function != NULL )
+    if (dlError != NULL)
     {
-        *SymbolAddress = (cpuaddr)Function;
+        OS_DEBUG("Error: %s: %s\n", SymbolName, dlError);
+    }
+    else if (Function == NULL)
+    {
+        /* technically not an error per POSIX, but in practice should not happen */
+        OS_DEBUG("Error: %s: dlsym() returned NULL\n", SymbolName);
+    }
+    else
+    {
         status = OS_SUCCESS;
     }
+
+    *SymbolAddress = (cpuaddr)Function;
+
+    return status;
+}
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_GlobalSymbolLookup_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_GlobalSymbolLookup_Impl(cpuaddr *SymbolAddress, const char *SymbolName)
+{
+    int32 status;
+
+    status = OS_GenericSymbolLookup_Impl(OSAL_DLSYM_DEFAULT_HANDLE, SymbolAddress, SymbolName);
 
     return status;
 
 } /* end OS_SymbolLookup_Impl */
+
+/*----------------------------------------------------------------
+ *
+ * Function: OS_ModuleSymbolLookup_Impl
+ *
+ *  Purpose: Implemented per internal OSAL API
+ *           See prototype for argument/return detail
+ *
+ *-----------------------------------------------------------------*/
+int32 OS_ModuleSymbolLookup_Impl(uint32 local_id, cpuaddr *SymbolAddress, const char *SymbolName)
+{
+    int32 status;
+
+    status = OS_GenericSymbolLookup_Impl(OS_impl_module_table[local_id].dl_handle, SymbolAddress, SymbolName);
+
+    return status;
+
+} /* end OS_ModuleSymbolLookup_Impl */
 
 /*----------------------------------------------------------------
  *
@@ -132,7 +177,7 @@ int32 OS_SymbolLookup_Impl( cpuaddr *SymbolAddress, const char *SymbolName )
  *  POSIX DL does not provide
  *
  *-----------------------------------------------------------------*/
-int32 OS_SymbolTableDump_Impl ( const char *filename, uint32 SizeLimit )
+int32 OS_SymbolTableDump_Impl(const char *filename, uint32 SizeLimit)
 {
     /*
      * Limiting strictly to POSIX-defined API means there is no defined
@@ -146,8 +191,6 @@ int32 OS_SymbolTableDump_Impl ( const char *filename, uint32 SizeLimit )
      * unimplemented here.
      */
 
-   return(OS_ERR_NOT_IMPLEMENTED);
+    return (OS_ERR_NOT_IMPLEMENTED);
 
 } /* end OS_SymbolTableDump_Impl */
-
-

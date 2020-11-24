@@ -49,13 +49,9 @@
 #include "os-impl-loader.h"
 #include "os-shared-module.h"
 
-
-
-
 /****************************************************************************************
                                     Module Loader API
  ***************************************************************************************/
-
 
 /*----------------------------------------------------------------
  *
@@ -65,25 +61,53 @@
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_ModuleLoad_Impl ( uint32 module_id, const char *translated_path )
+int32 OS_ModuleLoad_Impl(uint32 module_id, const char *translated_path)
 {
     int32 status = OS_ERROR;
+    int dl_mode;
 
-   dlerror();
-   OS_impl_module_table[module_id].dl_handle = dlopen(translated_path, RTLD_NOW | RTLD_GLOBAL);
-   if (OS_impl_module_table[module_id].dl_handle != NULL)
-   {
-       status = OS_SUCCESS;
-   }
-   else
-   {
-       OS_DEBUG("Error loading shared library: %s\n", dlerror());
-   }
+    /*
+     * RTLD_NOW should instruct dlopen() to resolve all the symbols in the
+     * module immediately, as opposed to waiting until they are used.
+     * The latter (lazy mode) is non-deterministic - a resolution error on
+     * a rarely-used symbol could cause a random failure far in the future.
+     */
+    dl_mode = RTLD_NOW;
 
-   return status;
+    if ((OS_module_table[module_id].flags & OS_MODULE_FLAG_LOCAL_SYMBOLS) != 0)
+    {
+        /*
+         * Do not add the symbols in this module to the global symbol table.
+         * This mode helps prevent any unanticipated references into this
+         * module, which can in turn prevent unloading via dlclose().
+         */
+        dl_mode |= RTLD_LOCAL;
+    }
+    else
+    {
+        /*
+         * Default mode - add symbols to the global symbol table, so they
+         * will be available to resolve symbols in future module loads.
+         * However, any such references will prevent unloading of this
+         * module via dlclose().
+         */
+        dl_mode |= RTLD_GLOBAL;
+    }
+
+    dlerror();
+    OS_impl_module_table[module_id].dl_handle = dlopen(translated_path, dl_mode);
+    if (OS_impl_module_table[module_id].dl_handle != NULL)
+    {
+        status = OS_SUCCESS;
+    }
+    else
+    {
+        OS_DEBUG("Error loading shared library: %s\n", dlerror());
+    }
+
+    return status;
 
 } /* end OS_ModuleLoad_Impl */
-
 
 /*----------------------------------------------------------------
  *
@@ -93,7 +117,7 @@ int32 OS_ModuleLoad_Impl ( uint32 module_id, const char *translated_path )
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_ModuleUnload_Impl ( uint32 module_id )
+int32 OS_ModuleUnload_Impl(uint32 module_id)
 {
     int32 status = OS_ERROR;
 
@@ -104,7 +128,7 @@ int32 OS_ModuleUnload_Impl ( uint32 module_id )
     if (dlclose(OS_impl_module_table[module_id].dl_handle) == 0)
     {
         OS_impl_module_table[module_id].dl_handle = NULL;
-        status = OS_SUCCESS;
+        status                                    = OS_SUCCESS;
     }
     else
     {
@@ -115,7 +139,6 @@ int32 OS_ModuleUnload_Impl ( uint32 module_id )
 
 } /* end OS_ModuleUnload_Impl */
 
-
 /*----------------------------------------------------------------
  *
  * Function: OS_ModuleGetInfo_Impl
@@ -124,20 +147,18 @@ int32 OS_ModuleUnload_Impl ( uint32 module_id )
  *           See prototype for argument/return detail
  *
  *-----------------------------------------------------------------*/
-int32 OS_ModuleGetInfo_Impl ( uint32 module_id, OS_module_prop_t *module_prop )
+int32 OS_ModuleGetInfo_Impl(uint32 module_id, OS_module_prop_t *module_prop)
 {
-   /*
-    * Limiting strictly to POSIX-defined API means there is no defined
-    * method to get information about a module contents.
-    *
-    * The "dlinfo()" function might return some interesting information
-    * but this is actually a non-posix extension / platform-defined API.
-    *
-    * This returns success - although there is no information to add here,
-    * the parent/shared layer information is still valid.
-    */
-    return(OS_SUCCESS);
+    /*
+     * Limiting strictly to POSIX-defined API means there is no defined
+     * method to get information about a module contents.
+     *
+     * The "dlinfo()" function might return some interesting information
+     * but this is actually a non-posix extension / platform-defined API.
+     *
+     * This returns success - although there is no information to add here,
+     * the parent/shared layer information is still valid.
+     */
+    return (OS_SUCCESS);
 
 } /* end OS_ModuleGetInfo_Impl */
-
-

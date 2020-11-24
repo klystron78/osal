@@ -60,15 +60,13 @@
 ** Local function definitions
 **--------------------------------------------------------------------------------*/
 
-char *fsAddrPtr = NULL;
+char *           fsAddrPtr = NULL;
 static osal_id_t setup_file(void)
 {
     osal_id_t id;
-    int32 status;
     UT_SETUP(OS_mkfs(fsAddrPtr, "/ramdev3", "RAM3", 512, 20));
     UT_SETUP(OS_mount("/ramdev3", "/drive3"));
-    status = OS_creat("/drive3/select_test.txt", OS_READ_WRITE);
-    id = OS_ObjectIdFromInteger(status);
+    UT_SETUP(OS_OpenCreate(&id, "/drive3/select_test.txt", OS_FILE_FLAG_CREATE | OS_FILE_FLAG_TRUNCATE, OS_READ_WRITE));
     return id;
 }
 
@@ -89,12 +87,11 @@ static void teardown_file(osal_id_t fd)
 **--------------------------------------------------------------------------------*/
 void UT_os_select_fd_test(void)
 {
-    OS_FdSet FdSet;
+    OS_FdSet  FdSet;
     osal_id_t fd = setup_file();
 
-    if(OS_SelectFdZero(&FdSet) == OS_ERR_NOT_IMPLEMENTED
-        || OS_SelectFdAdd(&FdSet, fd) == OS_ERR_NOT_IMPLEMENTED
-        || OS_SelectFdClear(&FdSet, fd) == OS_ERR_NOT_IMPLEMENTED)
+    if (OS_SelectFdZero(&FdSet) == OS_ERR_NOT_IMPLEMENTED || OS_SelectFdAdd(&FdSet, fd) == OS_ERR_NOT_IMPLEMENTED ||
+        OS_SelectFdClear(&FdSet, fd) == OS_ERR_NOT_IMPLEMENTED)
     {
         UtAssertEx(false, UTASSERT_CASETYPE_NA, __FILE__, __LINE__, "OS_SelectFd...() not implemented");
         goto UT_os_select_fd_test_exit_tag;
@@ -127,27 +124,29 @@ UT_os_select_fd_test_exit_tag:
 **--------------------------------------------------------------------------------*/
 void UT_os_select_single_test(void)
 {
-    uint32 StateFlags;
+    uint32    StateFlags;
     osal_id_t fd = setup_file();
-    int32 rc;
+    int32     rc;
 
     UT_RETVAL(OS_SelectSingle(fd, NULL, 0), OS_INVALID_POINTER, "NULL flags pointer");
 
     StateFlags = OS_STREAM_STATE_WRITABLE;
-    rc = OS_SelectSingle(fd, &StateFlags, 0);
-    if(rc == OS_ERR_NOT_IMPLEMENTED || rc == OS_ERR_OPERATION_NOT_SUPPORTED)
+    rc         = OS_SelectSingle(fd, &StateFlags, 0);
+    if (rc == OS_ERR_NOT_IMPLEMENTED || rc == OS_ERR_OPERATION_NOT_SUPPORTED)
     {
         UtAssertEx(false, UTASSERT_CASETYPE_NA, __FILE__, __LINE__, "OS_SelectSingle() not supported");
         goto UT_os_select_single_test_exit_tag;
     }
 
     UT_RETVAL(rc, OS_SUCCESS, "OS_SelectSingle(fd, OS_STREAM_STATE_WRITABLE, 0)");
-    UtAssert_True((StateFlags & OS_STREAM_STATE_WRITABLE) != 0, "StateFlags (0x%x) & OS_STREAM_STATE_WRITABLE", (unsigned int)StateFlags);
+    UtAssert_True((StateFlags & OS_STREAM_STATE_WRITABLE) != 0, "StateFlags (0x%x) & OS_STREAM_STATE_WRITABLE",
+                  (unsigned int)StateFlags);
 
     StateFlags = OS_STREAM_STATE_READABLE;
-    rc = OS_SelectSingle(fd, &StateFlags, 1);
+    rc         = OS_SelectSingle(fd, &StateFlags, 1);
     UT_RETVAL(rc, OS_SUCCESS, "OS_SelectSingle(fd, OS_STREAM_STATE_READABLE, 0)");
-    UtAssert_True((StateFlags & OS_STREAM_STATE_READABLE) != 0, "StateFlags (0x%x) & OS_STREAM_STATE_READABLE", (unsigned int)StateFlags);
+    UtAssert_True((StateFlags & OS_STREAM_STATE_READABLE) != 0, "StateFlags (0x%x) & OS_STREAM_STATE_READABLE",
+                  (unsigned int)StateFlags);
 
 UT_os_select_single_test_exit_tag:
     teardown_file(fd);
@@ -162,19 +161,18 @@ UT_os_select_single_test_exit_tag:
 **--------------------------------------------------------------------------------*/
 void UT_os_select_multi_test(void)
 {
-    OS_FdSet ReadSet, WriteSet;
+    OS_FdSet  ReadSet, WriteSet;
     osal_id_t fd = setup_file();
-    int32 rc;
+    int32     rc;
 
     OS_SelectFdZero(&WriteSet);
     OS_SelectFdAdd(&WriteSet, fd);
     rc = OS_SelectMultiple(NULL, &WriteSet, 1);
-    if(rc == OS_ERR_NOT_IMPLEMENTED || rc == OS_ERR_OPERATION_NOT_SUPPORTED)
+    if (rc == OS_ERR_NOT_IMPLEMENTED || rc == OS_ERR_OPERATION_NOT_SUPPORTED)
     {
         UtAssertEx(false, UTASSERT_CASETYPE_NA, __FILE__, __LINE__, "OS_SelectMultiple() not supported");
         goto UT_select_multi_test_exit_tag;
     }
-
 
     UT_RETVAL(rc, OS_SUCCESS, "OS_SelectMultiple(NULL, &WriteSet, 1)");
     UtAssert_True(OS_SelectFdIsSet(&WriteSet, fd), "OS_SelectFdIsSet(&WriteSet, fd)");
