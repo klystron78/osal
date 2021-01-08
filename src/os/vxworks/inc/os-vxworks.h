@@ -39,6 +39,7 @@
 #include <errno.h>
 
 #include <semLib.h>
+#include <condVarLib.h>
 #include <errnoLib.h>
 
 #include <os-shared-globaldefs.h>
@@ -53,8 +54,10 @@
 
 typedef struct
 {
-    void *const mem;
-    SEM_ID      vxid;
+    void *const m_mem;
+    void *const c_mem;
+    SEM_ID      m_vxid;
+    CONDVAR_ID  c_vxid;
 } VxWorks_GlobalMutex_t;
 
 /*
